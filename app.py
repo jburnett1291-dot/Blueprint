@@ -30,13 +30,12 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 2. DATA ENGINE
-SHEET_ID = "1Q5Q7_bk2RyNqJMbrYY5_VzDaPYhlEbQxqXA3BnYFBJU"
-URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
+SHEETS_URL = "https://docs.google.com/spreadsheets/d/1Q5Q7_bk2RyNqJMbrYY5_VzDaPYhlEbQxqXA3BnYFBJU/export?format=csv"
 
 @st.cache_data(ttl=60)
 def load_data():
     try:
-        df = pd.read_csv(URL)
+        df = pd.read_csv(SHEETS_URL)
         df.columns = df.columns.str.strip()
         req_cols = ['PTS', 'REB', 'AST', 'STL', 'BLK', 'TO', 'FGA', 'FGM', '3PM', '3PA', 'FTA', 'FTM', 'Game_ID', 'Win', 'Season']
         for c in req_cols:
@@ -107,15 +106,14 @@ def show_card(name, stats_df, raw_df, is_player=True):
         if g['is_ff']: st.info(f"{label} - FORFEIT")
         else:
             f = st.columns(6); f[0].metric(f"{label}", f"{int(g['PTS'])} PTS"); f[1].metric("REB", int(g['REB'])); f[2].metric("AST", int(g['AST'])); f[3].metric("STL", int(g['STL'])); f[4].metric("BLK", int(g['BLK'])); f[5].metric("FG%", f"{g['FG%_Raw']}%")
-    if st.button("Close Card & Clear Selection", use_container_width=True): st.rerun()
+    if st.button("Close Card", use_container_width=True): st.rerun()
 
-# 5. APP CONTENT
+# 5. MAIN APP
 if isinstance(full_df, str): st.error(f"⚠️ DATA ERROR: {full_df}")
 elif full_df is not None:
-    # Header & Division Filter
     st.markdown('<div class="header-banner">🏀 BPL HUB - POWERED BY QWIKTV</div>', unsafe_allow_html=True)
     
-    div_col1, div_col2, div_col3 = st.columns([1,2,1])
+    div_col2 = st.columns([1,2,1])[1]
     with div_col2:
         division = st.radio("SELECT DIVISION", ["HIGH SCHOOL", "COLLEGE", "PROS"], horizontal=True, label_visibility="collapsed")
     
@@ -143,21 +141,20 @@ elif full_df is not None:
 
     tabs = st.tabs(["👤 PLAYERS", "🏘️ STANDINGS", "🔝 LEADERS", "⚔️ VERSUS", "🏆 POSTSEASON", "📖 HALL OF FAME", "🔐 THE VAULT"])
 
-    with tabs[0]:
+    with tabs[0]: # PLAYERS
         if not p_stats.empty:
-            p_disp = p_stats[['GP', 'PTS/G', 'AST/G', 'REB/G', '3PM/G', '3PA/G', 'FGM/G', 'FGA/G', 'TO/G', 'PIE', 'FG%', 'Total_DD', 'Total_TD']].sort_values('PIE', ascending=False)
+            p_disp = p_stats[['GP', 'PTS/G', 'AST/G', 'REB/G', 'FG%', 'PIE', 'Total_DD', 'Total_TD']].sort_values('PIE', ascending=False)
             sel_p = st.dataframe(p_disp, width="stretch", on_select="rerun", selection_mode="single-row", key="p_main")
             if len(sel_p.selection.rows) > 0: show_card(p_disp.index[sel_p.selection.rows[0]], p_stats, df_reg, True)
-        else: st.info("No Player Data.")
 
-    with tabs[1]:
+    with tabs[1]: # STANDINGS
         if not t_stats.empty:
             t_stats['Record'] = t_stats['Total_Win'].astype(int).astype(str) + "-" + (t_stats['GP'] - t_stats['Total_Win']).astype(int).astype(str)
-            t_disp = t_stats.sort_values('Total_Win', ascending=False)[['Record', 'PTS/G', 'AST/G', 'REB/G', '3PM/G', '3PA/G', 'FGM/G', 'FGA/G', 'TO/G', 'PIE', 'FG%', 'DefRtg', 'OffRtg']]
+            t_disp = t_stats.sort_values('Total_Win', ascending=False)[['Record', 'PTS/G', 'AST/G', 'REB/G', 'FG%', 'DefRtg', 'OffRtg', 'PIE']]
             sel_t = st.dataframe(t_disp, width="stretch", on_select="rerun", selection_mode="single-row", key="t_main")
             if len(sel_t.selection.rows) > 0: show_card(t_disp.index[sel_t.selection.rows[0]], t_stats, df_reg, False)
 
-    with tabs[2]:
+    with tabs[2]: # LEADERS
         st.subheader("🔝 CATEGORY LEADERS")
         l_min = p_stats['GP'].max() * 0.4 if not p_stats.empty else 0
         filt_p = p_stats[p_stats['GP'] >= l_min]
@@ -176,7 +173,7 @@ elif full_df is not None:
                 st.dataframe(t10t, use_container_width=True)
                 st.plotly_chart(px.bar(t10t, x=l_cat, y=t10t.index, orientation='h', template="plotly_dark", color_discrete_sequence=['#004085']), use_container_width=True)
 
-    with tabs[3]:
+    with tabs[3]: # VERSUS
         v_mode = st.radio("Comparison Mode", ["Player vs Player", "Team vs Team"], horizontal=True)
         v1, mid, v2 = st.columns([2, 1, 2])
         source = p_stats if v_mode == "Player vs Player" else t_stats
@@ -192,7 +189,7 @@ elif full_df is not None:
                 cm.markdown(f"<div style='text-align:center; color:#007bff;'>{label}<br>{avg_df[col]:.1f}<br><small>AVG</small></div>", unsafe_allow_html=True)
                 c2.metric(p2, d2[col], round(d2[col]-d1[col], 2))
 
-    with tabs[4]:
+    with tabs[4]: # POSTSEASON
         st.header("🏆 POSTSEASON BRACKETOLOGY")
         mode = st.radio("Mode", ["Playoffs (9k)", "Tournament (8k)"], horizontal=True)
         target_id = 9000 if "Playoffs" in mode else 8000
@@ -207,18 +204,36 @@ elif full_df is not None:
                 sel_ps = st.dataframe(ps_disp, width="stretch", on_select="rerun", selection_mode="single-row", key="ps_df")
                 if len(sel_ps.selection.rows) > 0: show_card(ps_disp.index[sel_ps.selection.rows[0]], ps_stats, post_df, ps_type == "Players")
 
-    with tabs[5]:
+    with tabs[5]: # HALL OF FAME
         st.header("📖 HALL OF FAME")
         st.subheader("🎯 BPL Milestone Tracker")
-        milestones = {"Total_PTS": [125, 275, 400, 650], "Total_REB": [60, 100, 200], "Total_AST": [50, 125, 300], "Total_3PM": [75, 150, 300]}
+        
+        # FIXED: Specific Thresholds requested
+        milestones = {
+            "Total_PTS": [50, 100, 200, 500, 1000, 2000],
+            "Total_AST": [25, 50, 100, 200, 500],
+            "Total_REB": [50, 100, 200, 500, 1000],
+            "Total_STL": [20, 50, 100, 250],
+            "Total_BLK": [10, 25, 50, 100, 200],
+            "Total_3PM": [50, 100, 250, 500]
+        }
+        
         m_col = st.selectbox("Stat Category", list(milestones.keys()), format_func=lambda x: x.replace("Total_", ""))
         ms_data = []
         if not p_stats.empty:
-            for player, row in p_stats.iterrows():
+            for entity_name, row in p_stats.iterrows():
+                val = row[m_col]
                 for goal in milestones[m_col]:
-                    if row[m_col] >= goal: ms_data.append({"Player": player, "Goal": goal, "Current": int(row[m_col]), "Status": "✅ COMPLETED"})
-                    elif row[m_col] >= (goal * 0.85): ms_data.append({"Player": player, "Goal": goal, "Current": int(row[m_col]), "Status": "👀 CLOSE"})
-        if ms_data: st.dataframe(pd.DataFrame(ms_data).sort_values(["Goal", "Current"], ascending=[False, False]), use_container_width=True, hide_index=True)
+                    if val >= goal:
+                        # FIXED: Showing Player/Team Name instead of "total"
+                        ms_data.append({"Achiever": entity_name, "Goal": goal, "Current": int(val), "Status": "✅ COMPLETED"})
+                    elif val >= (goal * 0.85):
+                        ms_data.append({"Achiever": entity_name, "Goal": goal, "Current": int(val), "Status": "👀 CLOSE"})
+        
+        if ms_data:
+            ms_df = pd.DataFrame(ms_data).sort_values(["Goal", "Current"], ascending=[False, False])
+            st.dataframe(ms_df, use_container_width=True, hide_index=True)
+        else: st.info("No milestones tracked for this category yet.")
         
         st.divider(); st.subheader("🌟 BPL All-Time Highs")
         h_cols = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM']
@@ -229,21 +244,23 @@ elif full_df is not None:
                 val = valid_games[col].max(); best = valid_games.loc[valid_games[col].idxmax()]
                 grid[i%3].metric(f"All-Time: {col}", f"{int(val)}", f"by {best['Player/Team']}")
 
-    with tabs[6]:
+    with tabs[6]: # THE VAULT (Exact Mirror of SPAM)
         st.header("🔐 THE VAULT")
         if st.text_input("Passcode", type="password") == "BPL2026":
             st.success("Access Granted.")
             vault_cols = ['Total_PTS', 'Total_REB', 'Total_AST', 'Total_STL', 'Total_BLK', 'Total_3PM', 'Total_Win', 'Total_DD', 'Total_TD']
             st.dataframe(p_stats[vault_cols].sort_values('Total_PTS', ascending=False), width="stretch")
+            
             st.divider(); st.markdown("### 📊 Advanced Analytics")
             adv = p_stats[p_stats['Played_GP'] > 0].reset_index().copy()
             st.dataframe(adv[['Player/Team', 'Poss/G', 'PPS', 'TS%', 'OffRtg', 'DefRtg', 'PIE']].sort_values('OffRtg', ascending=False), use_container_width=True, hide_index=True)
+            
             v_view = st.selectbox("Vault Visualization", ["Vol vs Eff", "Off vs Def", "Poss Control"])
-            ap = adv.rename(columns={'FGA/G': 'FGA_G', 'PTS/G': 'PTS_G', 'Poss/G': 'Poss_G', 'TO/G': 'TO_G'})
-            if v_view == "Vol vs Eff": fig = px.scatter(ap, x='FGA_G', y='PTS_G', size='PIE', color='Player/Team', template="plotly_dark")
-            elif v_view == "Off vs Def": fig = px.scatter(ap, x='OffRtg', y='DefRtg', size='PIE', color='Player/Team', template="plotly_dark"); fig.update_yaxes(autorange="reversed")
-            else: fig = px.scatter(ap, x='Poss_G', y='TO_G', size='AST/G', color='Player/Team', template="plotly_dark")
+            if v_view == "Vol vs Eff": fig = px.scatter(adv, x='FGA/G', y='PTS/G', size='PIE', color='Player/Team', template="plotly_dark")
+            elif v_view == "Off vs Def": fig = px.scatter(adv, x='OffRtg', y='DefRtg', size='PIE', color='Player/Team', template="plotly_dark"); fig.update_yaxes(autorange="reversed")
+            else: fig = px.scatter(adv, x='Poss/G', y='TO/G', size='AST/G', color='Player/Team', template="plotly_dark")
             st.plotly_chart(fig, use_container_width=True)
+            
             st.divider(); st.subheader("🔥 Performance Trends")
             streaks = []
             for p in p_stats.index:
@@ -253,14 +270,5 @@ elif full_df is not None:
                     if l3 > avg_p * 1.2: streaks.append({"Entity": p, "Status": "🔥 HOT", "Trend": f"+{round(l3-avg_p,1)} PPG"})
                     elif l3 < avg_p * 0.8: streaks.append({"Entity": p, "Status": "❄️ COLD", "Trend": f"{round(l3-avg_p,1)} PPG"})
             if streaks: st.table(pd.DataFrame(streaks))
-
-    st.markdown("---")
-    la1, la2 = st.columns(2)
-    if not p_stats.empty:
-        p_avg = p_stats[['PTS/G', 'REB/G', 'AST/G', 'FG%']].mean()
-        la1.write(f"**👤 Player Averages:** {p_avg['PTS/G']:.1f} PPG | {p_avg['REB/G']:.1f} RPG | {p_avg['FG%']:.1f}% FG")
-    if not t_stats.empty:
-        t_avg = t_stats[['PTS/G', 'OffRtg', 'DefRtg']].mean()
-        la2.write(f"**🏘️ Team Averages:** {t_avg['PTS/G']:.1f} PPG | {t_avg['OffRtg']:.1f} OffRtg | {t_avg['DefRtg']:.1f} DefRtg")
 
     st.markdown('<div style="text-align: center; color: #444; padding: 30px;">© 2026 BPL LEAGUE TRACKER | POWERED BY QWIKTV | OTG NETWORK</div>', unsafe_allow_html=True)
