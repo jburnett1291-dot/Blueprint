@@ -76,21 +76,7 @@ def load_data():
 
         df = pd.read_csv(URL)
 
-        # FIX: Ensure all column names are stripped of invisible spaces
-
         df.columns = df.columns.str.strip()
-
-        
-
-        # FIX: Ensure mandatory grouping columns exist before proceeding
-
-        for col in ['Player/Team', 'Team Name', 'Type']:
-
-            if col not in df.columns:
-
-                df[col] = "Unknown"
-
-
 
         req_cols = ['PTS', 'REB', 'AST', 'STL', 'BLK', 'TO', 'FGA', 'FGM', '3PM', '3PA', 'FTA', 'FTM', 'Game_ID', 'Win', 'Season']
 
@@ -99,8 +85,6 @@ def load_data():
             if c not in df.columns: df[c] = 0
 
             df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
-
-        
 
         df['is_ff'] = (df['PTS'] == 0) & (df['FGA'] == 0) & (df['REB'] == 0)
 
@@ -115,8 +99,6 @@ def load_data():
             tens = sum(1 for x in s if x >= 10)
 
             return pd.Series([1 if tens >= 2 else 0, 1 if tens >= 3 else 0])
-
-        
 
         df[['DD', 'TD']] = df.apply(calc_multis, axis=1)
 
@@ -142,31 +124,13 @@ full_df = load_data()
 
 def get_stats(dataframe, group):
 
-    # FIX: Safety check to ensure the grouping column actually exists in the filtered dataframe
-
-    if dataframe.empty or group not in dataframe.columns: 
-
-        return pd.DataFrame()
-
-        
+    if dataframe.empty: return pd.DataFrame()
 
     total_gp = dataframe.groupby(group).size().reset_index(name='GP')
 
     played_df = dataframe[dataframe['is_ff'] == False]
 
-    
-
-    # FIX: Handle case where no games were actually played (all FF)
-
-    if played_df.empty:
-
-        played_gp = total_gp.copy().rename(columns={'GP': 'Played_GP'})
-
-        played_gp['Played_GP'] = 0
-
-    else:
-
-        played_gp = played_df.groupby(group).size().reset_index(name='Played_GP')
+    played_gp = played_df.groupby(group).size().reset_index(name='Played_GP')
 
     
 
@@ -180,11 +144,7 @@ def get_stats(dataframe, group):
 
     for col in ['DD', 'TD', 'PTS', 'REB', 'AST', 'STL', 'BLK', 'Win', '3PM', 'TO', 'FGM', 'FGA', '3PA', 'FTA', 'FTM']:
 
-        if col in m.columns:
-
-            m[f'Total_{col}'] = m[col].astype(int)
-
-            
+        m[f'Total_{col}'] = m[col].astype(int)
 
     m['Total_Poss'] = m['Poss_Raw'].astype(int)
 
@@ -194,11 +154,7 @@ def get_stats(dataframe, group):
 
     for col in ['PTS', 'REB', 'AST', 'STL', 'BLK', 'TO', '3PM', '3PA', 'FTM', 'FTA', 'Poss_Raw', 'FGA', 'FGM', 'PIE_Raw', 'DD', 'TD']:
 
-        if col in m.columns:
-
-            m[f'{col}/G'] = (m[col] / divisor).round(2)
-
-            
+        m[f'{col}/G'] = (m[col] / divisor).round(2)
 
     m['FG%'] = (m['FGM'] / m['FGA'].replace(0,1) * 100).round(2)
 
@@ -215,10 +171,6 @@ def get_stats(dataframe, group):
     m['Poss/G'] = m['Poss_Raw/G']
 
     return m
-
-
-
-
 
 
 
@@ -661,3 +613,4 @@ elif full_df is not None:
 
 
     st.markdown('<div style="text-align: center; color: #444; padding: 30px;">© 2026 BPL LEAGUE TRACKER | POWERED BY QWIKTV | </div>', unsafe_allow_html=True)
+
